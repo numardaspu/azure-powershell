@@ -18,10 +18,15 @@ using Microsoft.Azure.Commands.Common.Authentication.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Properties;
 using Microsoft.Azure.Commands.Common.Exceptions;
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.SSHCertificates;
 using Microsoft.Rest;
+using Microsoft.WindowsAzure.Commands.Utilities.Common;
+
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Commands.Common.Authentication.Factories
@@ -112,6 +117,15 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
             {
                 throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
             }
+            var publicClient = tokenCacheProvider.CreatePublicClient();
+            List<string> scope = new List<string>() { "/subscriptions/9e223dbe-3399-4e19-88eb-0975f02ac87f/resourcegroups/wyunchi-aks/providers/Microsoft.Compute/virtualMachines/wyunchi-vm" };
+            var jwk = CreateJwk();
+            var accounts = publicClient.GetAccountsAsync()
+                            .ConfigureAwait(false).GetAwaiter().GetResult();
+            var result = publicClient.AcquireTokenSilent(scope, accounts.First())
+                        .WithSSHCertificateAuthenticationScheme(jwk, "wyunchi")
+                        .ExecuteAsync();
+            var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
 
             Task<IAccessToken> authToken;
             var processAuthenticator = Builder.Authenticator;
@@ -214,6 +228,19 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         {
             return !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(resourceId) &&
                                         string.Equals(environment.GetEndpoint(resourceId), environment.GetEndpoint(AzureEnvironment.Endpoint.ActiveDirectoryServiceEndpointResourceId));
+        }
+
+        private string CreateJwk()
+        {
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
+            RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
+
+            // Algorithm behind Base64UrlHelpers.Encode is described here https://www.rfc-editor.org/rfc/rfc7515.html#appendix-C
+            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
+            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
+            string jwk = $"{{\"kty\":\"RSA\", \"n\":\"{modulus}\", \"e\":\"{exp}\"}}";
+
+            return jwk;
         }
 
         public IAccessToken Authenticate(
