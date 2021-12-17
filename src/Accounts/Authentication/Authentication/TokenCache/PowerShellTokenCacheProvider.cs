@@ -164,7 +164,7 @@ namespace Microsoft.Azure.Commands.Common.Authentication
 
         public virtual IPublicClientApplication CreatePublicClient(string authority = null)
         {
-            var builder = PublicClientApplicationBuilder.Create(PowerShellClientId);
+            var builder = PublicClientApplicationBuilder.Create("04b07795-8ddb-461a-bbee-02f9e1bf7b46");
 
             if(!string.IsNullOrEmpty(authority))
             {

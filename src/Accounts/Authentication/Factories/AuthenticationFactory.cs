@@ -22,6 +22,8 @@ using Microsoft.Identity.Client.SSHCertificates;
 using Microsoft.Rest;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
+using Newtonsoft.Json;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,6 +89,33 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         internal IAuthenticatorBuilder Builder => _getAuthenticator();
        
         public ITokenProvider TokenProvider { get; set; }
+        private string CreateJwk()
+        {
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
+            RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
+
+            // Algorithm behind Base64UrlHelpers.Encode is described here https://www.rfc-editor.org/rfc/rfc7515.html#appendix-C
+            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
+            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
+            var keyId = SHA256.Create();
+            //keyId.Upda
+            Dictionary<string, object> jwk = new Dictionary<string, object>
+            {
+                { "kty", "RSA" },
+                { "kid", "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902" },
+                { "n", "AMGSaAxJiGqwTFzLev2wsEbBAWPYElOP7KdH36J0G06cncT7jNxKJu8BI74idaXGEjRHOYhiXsdI6muoKhpMH0LI9gxTt6zGYB4b3H9S_KzrcEllcIKWoc5bPO6nb_eqRAi8ik7XWMeS4eiu6PNyJ4hO89e7e085GyQB_SjNo0Uw0Pw8z-2oVSB20-q-r6LsxydyUSgsHYtqba6LNRPKtPqwFytneYXeo5bHOz2P9qbT6TU52LFQAwaoLufuy4OxCtn5n2Tsl-SJ06PaMKDTF0eW-rhWR4Vy_yywX2SzorOCP2c5uHTyXLgAY8R19hz5aGTfvOO2zzaaH_rxyHhmiDSLqcaveJm55VFjA10FzkNYXqRab8iHdn4tsT65iIeYQ6cvQmnQu-4N1LW987eq2oQYLdoEX1fA0uJaF6HQNJ-emZ4otju1oW6V3_u2Eew2xwfkj4Yi4uGL9bSrBJOE1Y55hxb-qINnvXx1F5H_9mmKJyfXHMxeP-iwaQT2nn92sQ==" },
+                { "e", "AQAB" }
+            };
+            Dictionary<string, object> a = new Dictionary<string, object>
+            {
+                { "token_type", "ssh-cert" },
+                { "req_cnf", JsonConvert.SerializeObject(jwk) },
+                { "key_id", "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902" }
+            };
+            ////string jwk = $"{{\"kty\":\"RSA\", \"n\":\"{modulus}\", \"e\":\"{exp}\"}}";
+
+            return JsonConvert.SerializeObject(jwk);
+        }
 
         /// <summary>
         /// 
@@ -118,12 +147,12 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                 throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
             }
             var publicClient = tokenCacheProvider.CreatePublicClient();
-            List<string> scope = new List<string>() { "/subscriptions/9e223dbe-3399-4e19-88eb-0975f02ac87f/resourcegroups/wyunchi-aks/providers/Microsoft.Compute/virtualMachines/wyunchi-vm" };
+            List<string> scope = new List<string>() { "https://pas.windows.net/CheckMyAccess/Linux/.default" };
             var jwk = CreateJwk();
             var accounts = publicClient.GetAccountsAsync()
                             .ConfigureAwait(false).GetAwaiter().GetResult();
             var result = publicClient.AcquireTokenSilent(scope, accounts.First())
-                        .WithSSHCertificateAuthenticationScheme(jwk, "wyunchi")
+                        .WithSSHCertificateAuthenticationScheme(jwk, "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902")
                         .ExecuteAsync();
             var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
 
@@ -228,19 +257,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         {
             return !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(resourceId) &&
                                         string.Equals(environment.GetEndpoint(resourceId), environment.GetEndpoint(AzureEnvironment.Endpoint.ActiveDirectoryServiceEndpointResourceId));
-        }
-
-        private string CreateJwk()
-        {
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
-            RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
-
-            // Algorithm behind Base64UrlHelpers.Encode is described here https://www.rfc-editor.org/rfc/rfc7515.html#appendix-C
-            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
-            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
-            string jwk = $"{{\"kty\":\"RSA\", \"n\":\"{modulus}\", \"e\":\"{exp}\"}}";
-
-            return jwk;
         }
 
         public IAccessToken Authenticate(

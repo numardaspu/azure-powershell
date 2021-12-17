@@ -1,0 +1,10 @@
+
+Host wyunchi-wyunchi-vm
+	User yunwang@microsoft.com
+	HostName 52.255.156.223
+	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
+	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
+Host 52.255.156.223
+	User yunwang@microsoft.com
+	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
+	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
