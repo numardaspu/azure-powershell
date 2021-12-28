@@ -160,11 +160,11 @@ namespace Microsoft.Azure.Commands.Common.Authentication
                 AzureSession.Instance.ClientFactory.GetCustomHandlers());
         }
 
-        protected abstract void RegisterCache(IPublicClientApplication client);
+        public abstract void RegisterCache(IPublicClientApplication client);
 
         public virtual IPublicClientApplication CreatePublicClient(string authority = null)
         {
-            var builder = PublicClientApplicationBuilder.Create("04b07795-8ddb-461a-bbee-02f9e1bf7b46");
+            var builder = PublicClientApplicationBuilder.Create(PowerShellClientId);
 
             if(!string.IsNullOrEmpty(authority))
             {

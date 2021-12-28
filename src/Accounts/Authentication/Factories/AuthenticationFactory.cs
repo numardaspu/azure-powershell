@@ -87,17 +87,18 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
 
         private Func<IAuthenticatorBuilder> _getAuthenticator;
         internal IAuthenticatorBuilder Builder => _getAuthenticator();
-       
+
         public ITokenProvider TokenProvider { get; set; }
-        private string CreateJwk()
+        private string CreateJwk(string publicKeyFilePath, out string keyId)
         {
             RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
             RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
 
-            // Algorithm behind Base64UrlHelpers.Encode is described here https://www.rfc-editor.org/rfc/rfc7515.html#appendix-C
+            System.Security.Cryptography.RSA.ImportRSAPublic()
+
             string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
             string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
-            var keyId = SHA256.Create();
+            keyId = "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902";
             //keyId.Upda
             Dictionary<string, object> jwk = new Dictionary<string, object>
             {
@@ -106,13 +107,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                 { "n", "AMGSaAxJiGqwTFzLev2wsEbBAWPYElOP7KdH36J0G06cncT7jNxKJu8BI74idaXGEjRHOYhiXsdI6muoKhpMH0LI9gxTt6zGYB4b3H9S_KzrcEllcIKWoc5bPO6nb_eqRAi8ik7XWMeS4eiu6PNyJ4hO89e7e085GyQB_SjNo0Uw0Pw8z-2oVSB20-q-r6LsxydyUSgsHYtqba6LNRPKtPqwFytneYXeo5bHOz2P9qbT6TU52LFQAwaoLufuy4OxCtn5n2Tsl-SJ06PaMKDTF0eW-rhWR4Vy_yywX2SzorOCP2c5uHTyXLgAY8R19hz5aGTfvOO2zzaaH_rxyHhmiDSLqcaveJm55VFjA10FzkNYXqRab8iHdn4tsT65iIeYQ6cvQmnQu-4N1LW987eq2oQYLdoEX1fA0uJaF6HQNJ-emZ4otju1oW6V3_u2Eew2xwfkj4Yi4uGL9bSrBJOE1Y55hxb-qINnvXx1F5H_9mmKJyfXHMxeP-iwaQT2nn92sQ==" },
                 { "e", "AQAB" }
             };
-            Dictionary<string, object> a = new Dictionary<string, object>
-            {
-                { "token_type", "ssh-cert" },
-                { "req_cnf", JsonConvert.SerializeObject(jwk) },
-                { "key_id", "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902" }
-            };
-            ////string jwk = $"{{\"kty\":\"RSA\", \"n\":\"{modulus}\", \"e\":\"{exp}\"}}";
 
             return JsonConvert.SerializeObject(jwk);
         }
@@ -146,15 +140,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
             {
                 throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
             }
-            var publicClient = tokenCacheProvider.CreatePublicClient();
-            List<string> scope = new List<string>() { "https://pas.windows.net/CheckMyAccess/Linux/.default" };
-            var jwk = CreateJwk();
-            var accounts = publicClient.GetAccountsAsync()
-                            .ConfigureAwait(false).GetAwaiter().GetResult();
-            var result = publicClient.AcquireTokenSilent(scope, accounts.First())
-                        .WithSSHCertificateAuthenticationScheme(jwk, "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902")
-                        .ExecuteAsync();
-            var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
 
             Task<IAccessToken> authToken;
             var processAuthenticator = Builder.Authenticator;
@@ -209,7 +194,7 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         private static bool IsTransientException(Exception e)
         {
             var msalException = e.InnerException as MsalServiceException;
-            if(msalException != null)
+            if (msalException != null)
             {
                 return msalException.ErrorCode == MsalError.RequestTimeout ||
                     msalException.ErrorCode == MsalError.ServiceNotAvailable;
@@ -220,12 +205,12 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         private static AzPSAuthenticationFailedException AnalyzeMsalException(Exception exception, IAzureEnvironment environment, string tenantId, string resourceId)
         {
             var originalException = exception;
-            while(exception != null)
+            while (exception != null)
             {
-                if(exception is MsalUiRequiredException msalUiRequiredException)
+                if (exception is MsalUiRequiredException msalUiRequiredException)
                 {
                     //There's no official error message for requiring MFA permission, so have to compare UGLY error message
-                    if(msalUiRequiredException.ErrorCode == "invalid_grant" &&
+                    if (msalUiRequiredException.ErrorCode == "invalid_grant" &&
                         msalUiRequiredException.Message.Contains("you must use multi-factor authentication to access"))
                     {
                         string errorMessage;
@@ -376,7 +361,7 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
 
         public ServiceClientCredentials GetServiceClientCredentials(IAzureContext context, string targetEndpoint)
         {
-            if(context == null)
+            if (context == null)
             {
                 throw new AzPSApplicationException("Azure context is empty");
             }
@@ -394,7 +379,7 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                 case AzureAccount.AccountType.Certificate:
                     throw new NotSupportedException(AzureAccount.AccountType.Certificate.ToString());
                 case AzureAccount.AccountType.AccessToken:
-                    return new RenewingTokenCredential(new ExternalAccessToken (GetEndpointToken(context.Account, targetEndpoint), () => GetEndpointToken(context.Account, targetEndpoint)));
+                    return new RenewingTokenCredential(new ExternalAccessToken(GetEndpointToken(context.Account, targetEndpoint), () => GetEndpointToken(context.Account, targetEndpoint)));
             }
 
 
@@ -444,6 +429,32 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                 TracingAdapter.Information(Resources.AdalAuthException, ex.Message);
                 throw new AzPSArgumentException(Resources.InvalidArmContext + System.Environment.NewLine + ex.Message, ex);
             }
+        }
+
+        public ServiceClientCredentials GetVMCredentials(IAzureContext context, string publicKeyFilePath)
+        {
+            PowerShellTokenCacheProvider tokenCacheProvider;
+            if (!AzureSession.Instance.TryGetComponent(PowerShellTokenCacheProvider.PowerShellTokenCacheProviderKey, out tokenCacheProvider))
+            {
+                throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
+            }
+
+            var builder = PublicClientApplicationBuilder.Create("04b07795-8ddb-461a-bbee-02f9e1bf7b46");
+
+            var publicClient = builder.Build();
+            tokenCacheProvider.RegisterCache(publicClient);
+            List<string> scope = new List<string>() { "https://pas.windows.net/CheckMyAccess/Linux/.default" };
+            string keyId;
+            var jwk = CreateJwk(publicKeyFilePath, out keyId);
+            var accounts = publicClient.GetAccountsAsync()
+                            .ConfigureAwait(false).GetAwaiter().GetResult();
+            var result = publicClient.AcquireTokenSilent(scope, accounts.First())
+                        .WithSSHCertificateAuthenticationScheme(jwk, keyId)
+                        .ExecuteAsync();
+            var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
+
+            return GetServiceClientCredentials(context,
+                AzureEnvironment.Endpoint.ActiveDirectoryServiceEndpointResourceId);
         }
 
         public ServiceClientCredentials GetServiceClientCredentials(string accessToken, Func<string> renew = null)
