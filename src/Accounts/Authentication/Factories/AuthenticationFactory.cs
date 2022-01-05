@@ -26,9 +26,11 @@ using Newtonsoft.Json;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Commands.Common.Authentication.Factories
@@ -92,20 +94,29 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         private string CreateJwk(string publicKeyFilePath, out string keyId)
         {
             RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
+            byte[] content = File.ReadAllBytes(publicKeyFilePath);
+            rsa.ImportCspBlob(content);
             RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
-
-            System.Security.Cryptography.RSA.ImportRSAPublic()
 
             string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
             string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
-            keyId = "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902";
-            //keyId.Upda
+
+            SHA256 hash = SHA256.Create();
+            byte[] data = rsaKeyInfo.Modulus.Concat(rsaKeyInfo.Exponent).ToArray();
+            byte[] output = new byte[1024];
+            int count = hash.TransformBlock(data, 0, data.Length, output, 0);
+            StringBuilder hex = new StringBuilder(count * 2);
+            for (int i = 0; i < count; ++i)
+            {
+                hex.AppendFormat("{0:x2}", output[i]);
+            }
+            keyId = hex.ToString();
             Dictionary<string, object> jwk = new Dictionary<string, object>
             {
                 { "kty", "RSA" },
-                { "kid", "e13171c94485dea813b5e81a465627ed80b25477b1100194c282d07d0ad6f902" },
-                { "n", "AMGSaAxJiGqwTFzLev2wsEbBAWPYElOP7KdH36J0G06cncT7jNxKJu8BI74idaXGEjRHOYhiXsdI6muoKhpMH0LI9gxTt6zGYB4b3H9S_KzrcEllcIKWoc5bPO6nb_eqRAi8ik7XWMeS4eiu6PNyJ4hO89e7e085GyQB_SjNo0Uw0Pw8z-2oVSB20-q-r6LsxydyUSgsHYtqba6LNRPKtPqwFytneYXeo5bHOz2P9qbT6TU52LFQAwaoLufuy4OxCtn5n2Tsl-SJ06PaMKDTF0eW-rhWR4Vy_yywX2SzorOCP2c5uHTyXLgAY8R19hz5aGTfvOO2zzaaH_rxyHhmiDSLqcaveJm55VFjA10FzkNYXqRab8iHdn4tsT65iIeYQ6cvQmnQu-4N1LW987eq2oQYLdoEX1fA0uJaF6HQNJ-emZ4otju1oW6V3_u2Eew2xwfkj4Yi4uGL9bSrBJOE1Y55hxb-qINnvXx1F5H_9mmKJyfXHMxeP-iwaQT2nn92sQ==" },
-                { "e", "AQAB" }
+                { "kid", keyId },
+                { "n", modulus },
+                { "e", exp }
             };
 
             return JsonConvert.SerializeObject(jwk);

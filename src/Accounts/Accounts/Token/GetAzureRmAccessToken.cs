@@ -14,17 +14,26 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.Azure.Commands.Common.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
+using Microsoft.Azure.Commands.Common.Authentication.Properties;
 using Microsoft.Azure.Commands.Profile.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.PowerShell.Authenticators;
+using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.SSHCertificates;
+using Microsoft.Rest;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
+
+using Newtonsoft.Json;
 
 namespace Microsoft.Azure.Commands.Profile
 {
@@ -68,6 +77,63 @@ namespace Microsoft.Azure.Commands.Profile
         [Parameter(Mandatory = false, HelpMessage = "Optional Tenant Id. Use tenant id of default context if not specified.")]
         public string TenantId { get; set; }
 
+
+        private string CreateJwk(string publicKeyFilePath, out string keyId)
+        {
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider();
+            byte[] content = File.ReadAllBytes(publicKeyFilePath);
+            rsa.ImportCspBlob(content);
+            RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
+
+            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
+            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
+
+            SHA256 hash = SHA256.Create();
+            byte[] data = rsaKeyInfo.Modulus.Concat(rsaKeyInfo.Exponent).ToArray();
+            byte[] output = new byte[1024 * 1024];
+            int count = hash.TransformBlock(data, 0, data.Length, output, 0);
+            StringBuilder hex = new StringBuilder(count * 2);
+            for (int i = 0; i < count; ++i)
+            {
+                hex.AppendFormat("{0:x2}", output[i]);
+            }
+            keyId = hex.ToString();
+            Dictionary<string, object> jwk = new Dictionary<string, object>
+            {
+                { "kty", "RSA" },
+                { "kid", keyId },
+                { "n", modulus },
+                { "e", exp }
+            };
+
+            return JsonConvert.SerializeObject(jwk);
+        }
+        public ServiceClientCredentials GetVMCredentials(IAzureContext context, string publicKeyFilePath)
+        {
+            PowerShellTokenCacheProvider tokenCacheProvider;
+            if (!AzureSession.Instance.TryGetComponent(PowerShellTokenCacheProvider.PowerShellTokenCacheProviderKey, out tokenCacheProvider))
+            {
+                throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
+            }
+
+            var builder = PublicClientApplicationBuilder.Create("04b07795-8ddb-461a-bbee-02f9e1bf7b46");
+
+            var publicClient = builder.Build();
+            tokenCacheProvider.RegisterCache(publicClient);
+            List<string> scope = new List<string>() { "https://pas.windows.net/CheckMyAccess/Linux/.default" };
+            string keyId;
+            var jwk = CreateJwk(publicKeyFilePath, out keyId);
+            var accounts = publicClient.GetAccountsAsync()
+                            .ConfigureAwait(false).GetAwaiter().GetResult();
+            var result = publicClient.AcquireTokenSilent(scope, accounts.First())
+                        .WithSSHCertificateAuthenticationScheme(jwk, keyId)
+                        .ExecuteAsync();
+            var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
+
+            return AzureSession.Instance.AuthenticationFactory.GetServiceClientCredentials(context,
+                AzureEnvironment.Endpoint.ActiveDirectoryServiceEndpointResourceId);
+        }
+
         public override void ExecuteCmdlet()
         {
             base.ExecuteCmdlet();
@@ -96,6 +162,7 @@ namespace Microsoft.Azure.Commands.Profile
             {
                 TenantId = context.Tenant?.Id;
             }
+            GetVMCredentials(context, @"C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub");
 
             IAccessToken accessToken = AzureSession.Instance.AuthenticationFactory.Authenticate(
                                 context.Account,
