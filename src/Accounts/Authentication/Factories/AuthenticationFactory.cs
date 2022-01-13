@@ -18,19 +18,11 @@ using Microsoft.Azure.Commands.Common.Authentication.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Properties;
 using Microsoft.Azure.Commands.Common.Exceptions;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.SSHCertificates;
 using Microsoft.Rest;
-using Microsoft.WindowsAzure.Commands.Utilities.Common;
-
-using Newtonsoft.Json;
 
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Commands.Common.Authentication.Factories
@@ -91,36 +83,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         internal IAuthenticatorBuilder Builder => _getAuthenticator();
 
         public ITokenProvider TokenProvider { get; set; }
-        private string CreateJwk(string publicKeyFilePath, out string keyId)
-        {
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
-            byte[] content = File.ReadAllBytes(publicKeyFilePath);
-            rsa.ImportCspBlob(content);
-            RSAParameters rsaKeyInfo = rsa.ExportParameters(false);
-
-            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
-            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
-
-            SHA256 hash = SHA256.Create();
-            byte[] data = rsaKeyInfo.Modulus.Concat(rsaKeyInfo.Exponent).ToArray();
-            byte[] output = new byte[1024];
-            int count = hash.TransformBlock(data, 0, data.Length, output, 0);
-            StringBuilder hex = new StringBuilder(count * 2);
-            for (int i = 0; i < count; ++i)
-            {
-                hex.AppendFormat("{0:x2}", output[i]);
-            }
-            keyId = hex.ToString();
-            Dictionary<string, object> jwk = new Dictionary<string, object>
-            {
-                { "kty", "RSA" },
-                { "kid", keyId },
-                { "n", modulus },
-                { "e", exp }
-            };
-
-            return JsonConvert.SerializeObject(jwk);
-        }
 
         /// <summary>
         /// 
@@ -440,32 +402,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                 TracingAdapter.Information(Resources.AdalAuthException, ex.Message);
                 throw new AzPSArgumentException(Resources.InvalidArmContext + System.Environment.NewLine + ex.Message, ex);
             }
-        }
-
-        public ServiceClientCredentials GetVMCredentials(IAzureContext context, string publicKeyFilePath)
-        {
-            PowerShellTokenCacheProvider tokenCacheProvider;
-            if (!AzureSession.Instance.TryGetComponent(PowerShellTokenCacheProvider.PowerShellTokenCacheProviderKey, out tokenCacheProvider))
-            {
-                throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
-            }
-
-            var builder = PublicClientApplicationBuilder.Create("04b07795-8ddb-461a-bbee-02f9e1bf7b46");
-
-            var publicClient = builder.Build();
-            tokenCacheProvider.RegisterCache(publicClient);
-            List<string> scope = new List<string>() { "https://pas.windows.net/CheckMyAccess/Linux/.default" };
-            string keyId;
-            var jwk = CreateJwk(publicKeyFilePath, out keyId);
-            var accounts = publicClient.GetAccountsAsync()
-                            .ConfigureAwait(false).GetAwaiter().GetResult();
-            var result = publicClient.AcquireTokenSilent(scope, accounts.First())
-                        .WithSSHCertificateAuthenticationScheme(jwk, keyId)
-                        .ExecuteAsync();
-            var aa = result.ConfigureAwait(false).GetAwaiter().GetResult();
-
-            return GetServiceClientCredentials(context,
-                AzureEnvironment.Endpoint.ActiveDirectoryServiceEndpointResourceId);
         }
 
         public ServiceClientCredentials GetServiceClientCredentials(string accessToken, Func<string> renew = null)

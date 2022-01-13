@@ -1,28 +1,19 @@
 
 Host wyunchi-wyunchi-vm
-	User yunwang@microsoft.com
-	HostName 52.255.156.223
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
-Host 52.255.156.223
-	User yunwang@microsoft.com
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
-Host wyunchi-wyunchi-vm
-	User yunwang@microsoft.com
-	HostName 40.76.240.161
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
-Host 40.76.240.161
-	User yunwang@microsoft.com
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
-Host wyunchi-wyunchi-vm
-	User yunwang@microsoft.com
-	HostName 40.76.240.161
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
-Host 40.76.240.161
-	User yunwang@microsoft.com
-	CertificateFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
-	IdentityFile .\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
+	User yunchi.wang@microsoft.com
+	HostName 20.127.69.100
+	CertificateFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
+	IdentityFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
+Host 20.127.69.100
+	User yunchi.wang@microsoft.com
+	CertificateFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm\id_rsa.pub-aadcert.pub
+	IdentityFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm\id_rsa
+Host wyunchi-wyunchi-vm-0
+	User yunchi.wang@microsoft.com
+	HostName 13.82.144.23
+	CertificateFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm-0\id_rsa.pub-aadcert.pub
+	IdentityFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm-0\id_rsa
+Host 13.82.144.23
+	User yunchi.wang@microsoft.com
+	CertificateFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm-0\id_rsa.pub-aadcert.pub
+	IdentityFile C:\Users\yunwang\source\repos\azure-powershell\az_ssh_config\wyunchi-wyunchi-vm-0\id_rsa
