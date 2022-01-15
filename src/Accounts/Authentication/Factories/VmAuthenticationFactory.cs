@@ -22,7 +22,6 @@ using Newtonsoft.Json;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -85,8 +84,9 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                         .WithSSHCertificateAuthenticationScheme(jwk, keyId)
                         .ExecuteAsync();
             var accessToken = result.ConfigureAwait(false).GetAwaiter().GetResult();
+            var a = accessToken.GetType();
 
-            return new TokenCredentials(accessToken.AccessToken);
+            return new TokenCredentials(accessToken.AccessToken, "ssh-cert");
         }
     }
 }
