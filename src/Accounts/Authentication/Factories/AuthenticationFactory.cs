@@ -639,7 +639,7 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
             return JsonConvert.SerializeObject(jwk);
         }
 
-        public ServiceClientCredentials GetVmCredentials(IAzureContext context, RSAParameters rsaKeyInfo)
+        public IAccessToken GetVmCredentials(IAzureContext context, RSAParameters rsaKeyInfo)
         {
             if (!AzureSession.Instance.TryGetComponent(PowerShellTokenCacheProvider.PowerShellTokenCacheProviderKey, out PowerShellTokenCacheProvider tokenCacheProvider))
             {
@@ -664,7 +664,13 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
                         .ExecuteAsync();
             var accessToken = result.ConfigureAwait(false).GetAwaiter().GetResult();
 
-            return new TokenCredentials(accessToken.AccessToken, "ssh-cert");
+            var resultToken = new RawAccessToken()
+            {
+                AccessToken = accessToken.AccessToken,
+                ExpiresOn = accessToken.ExpiresOn,
+                
+            };
+            return resultToken;
         }
     }
 }

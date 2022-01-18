@@ -148,9 +148,9 @@ namespace Microsoft.WindowsAzure.Commands.Common.Test.Mocks
             throw new NotImplementedException();
         }
 
-        public ServiceClientCredentials GetVmCredentials(IAzureContext context, RSAParameters rsaKeyInfo)
+        public IAccessToken GetVmCredentials(IAzureContext context, RSAParameters rsaKeyInfo)
         {
-            return new Microsoft.Rest.TokenCredentials(Token.AccessToken);
+            throw new NotImplementedException();
         }
     }
 }
