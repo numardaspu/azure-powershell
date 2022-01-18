@@ -224,7 +224,6 @@ namespace Microsoft.Azure.Commands.Common.Authentication
             {
                 ClientFactory = new ClientFactory(),
                 AuthenticationFactory = new AuthenticationFactory(),
-                VmAuthenticationFactory = new VmAuthenticationFactory(),
                 DataStore = dataStore,
                 OldProfileFile = "WindowsAzureProfile.xml",
                 OldProfileFileBackup = "WindowsAzureProfile.xml.bak",

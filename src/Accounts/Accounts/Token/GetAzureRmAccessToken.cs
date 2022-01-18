@@ -114,7 +114,7 @@ namespace Microsoft.Azure.Commands.Profile
                 Exponent = Base64UrlHelper.DecodeToBytes(exp),
                 Modulus = Base64UrlHelper.DecodeToBytes(modulus)
             };
-            AzureSession.Instance.VmAuthenticationFactory.GetVmCredentials(context, parameters);
+            AzureSession.Instance.AuthenticationFactory.GetVmCredentials(context, parameters);
 
             IAccessToken accessToken = AzureSession.Instance.AuthenticationFactory.Authenticate(
                                 context.Account,

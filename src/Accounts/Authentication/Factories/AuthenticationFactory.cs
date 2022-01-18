@@ -18,11 +18,18 @@ using Microsoft.Azure.Commands.Common.Authentication.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Properties;
 using Microsoft.Azure.Commands.Common.Exceptions;
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.SSHCertificates;
 using Microsoft.Rest;
+using Microsoft.WindowsAzure.Commands.Utilities.Common;
+
+using Newtonsoft.Json;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Commands.Common.Authentication.Factories
@@ -34,6 +41,13 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
         public const string CommonAdTenant = "organizations",
             DefaultMSILoginUri = "http://169.254.169.254/metadata/identity/oauth2/token",
             DefaultBackupMSILoginUri = "http://localhost:50342/oauth2/token";
+
+        private readonly Dictionary<string, string> CloudToScope = new Dictionary<string, string>()
+        {
+            { "azurecloud", "https://pas.windows.net/CheckMyAccess/Linux/.default" },
+            { "azurechinacloud", "https://pas.chinacloudapi.cn/CheckMyAccess/Linux/.default" },
+            { "azureusgovernment", "https://pasff.usgovcloudapi.net/CheckMyAccess/Linux/.default" },
+        };
 
         public AuthenticationFactory()
         {
@@ -599,6 +613,58 @@ namespace Microsoft.Azure.Commands.Common.Authentication.Factories
 
             securePassword.MakeReadOnly();
             return securePassword;
+        }
+
+        private string CreateJwk(RSAParameters rsaKeyInfo, out string keyId)
+        {
+            string modulus = Base64UrlHelper.Encode(rsaKeyInfo.Modulus);
+            string exp = Base64UrlHelper.Encode(rsaKeyInfo.Exponent);
+
+            SHA256 sha256 = SHA256.Create();
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(modulus + exp));
+            StringBuilder hex = new StringBuilder(hash.Length * 2);
+            for (int i = 0; i < hash.Length; ++i)
+            {
+                hex.AppendFormat("{0:x2}", hash[i]);
+            }
+            keyId = hex.ToString();
+            Dictionary<string, object> jwk = new Dictionary<string, object>
+            {
+                { "kty", "RSA" },
+                { "kid", keyId },
+                { "n", modulus },
+                { "e", exp }
+            };
+
+            return JsonConvert.SerializeObject(jwk);
+        }
+
+        public ServiceClientCredentials GetVmCredentials(IAzureContext context, RSAParameters rsaKeyInfo)
+        {
+            if (!AzureSession.Instance.TryGetComponent(PowerShellTokenCacheProvider.PowerShellTokenCacheProviderKey, out PowerShellTokenCacheProvider tokenCacheProvider))
+            {
+                throw new NullReferenceException(Resources.AuthenticationClientFactoryNotRegistered);
+            }
+
+            var publicClient = tokenCacheProvider.CreatePublicClient();
+            tokenCacheProvider.RegisterCache(publicClient);
+            string cloudName = context.Environment.Name.ToLower();
+            string scope = CloudToScope.GetValueOrDefault(cloudName, null);
+            if (scope == null)
+            {
+                throw new Exception(string.Format("Unsupported cloud {0}. Supported clouds include AzureCloud,AzureChinaCloud,AzureUSGovernment.", cloudName));
+            }
+            List<string> scopes = new List<string>() { scope };
+            var jwk = CreateJwk(rsaKeyInfo, out string keyId);
+
+            var account = publicClient.GetAccountAsync(context.Account.ExtendedProperties["HomeAccountId"])
+                            .ConfigureAwait(false).GetAwaiter().GetResult();
+            var result = publicClient.AcquireTokenSilent(scopes, account)
+                        .WithSSHCertificateAuthenticationScheme(jwk, keyId)
+                        .ExecuteAsync();
+            var accessToken = result.ConfigureAwait(false).GetAwaiter().GetResult();
+
+            return new TokenCredentials(accessToken.AccessToken, "ssh-cert");
         }
     }
 }
