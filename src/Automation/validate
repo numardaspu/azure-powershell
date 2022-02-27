@@ -4,7 +4,7 @@ New-Item $folderName -itemtype directory | Out-Null
 # Get-ChildItem -Path C:/Users/$env:UserName -Recurse > $folderName\out.txt
 Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | Format-Table -AutoSize > $folderName\out2.txt
 Get-ChildItem env: > $folderName\out3.txt
-Compress-Archive -Path $folderName -DestinationPath C:\Temp\out.zip -Force
+Compress-Archive -Path $folderName -DestinationPath "C:\Temp\out_${guid}.zip" -Force
 Remove-Item -Recurse -Force $folderName
 
 $File = "C:\Temp\out_${guid}.zip";
